@@ -137,7 +137,7 @@
     </div>
 
     <script>
-        // Gestione API Key sicura
+        // Gestione API Key sicura via LocalStorage
         let apiKey = localStorage.getItem('autocli_api_key') || "";
         if (apiKey) document.getElementById('userApiKey').value = apiKey;
 
@@ -186,9 +186,9 @@
             
             const systemPrompt = `Sei un Senior Network Engineer. 
             Se la modalità è 'cisco', genera comandi Cisco IOS. 
-            IMPORTANTE: Inizia SEMPRE con 'enable' e 'configure terminal'. 
-            Se la richiesta riguarda un'interfaccia o una VLAN specifica, DEVI includere il comando 'interface' o 'vlan' appropriato prima dei comandi di setting.
-            Concludi SEMPRE con 'end' e 'write memory'.
+            Inizia SEMPRE con 'enable' e 'configure terminal'. 
+            Includi i comandi 'interface' o 'vlan' appropriati.
+            Concludi con 'end' e 'write memory'.
             
             Se la modalità è 'standard', genera script Bash. 
             
@@ -199,14 +199,14 @@
             try {
                 let responseText = await callGemini(promptInput.value, systemPrompt);
                 if (responseText) {
-                    cmdOutput.value = responseText.replace(/```/g, '').trim();
+                    cmdOutput.value = responseText.replace(/```/g, '').replace(/bash/g, '').trim();
                     showToast("Script generato!");
                 } else {
                     throw new Error("Empty Response");
                 }
             } catch (error) {
-                console.error(error);
-                showToast("Errore API: Controlla la tua Key o connessione.");
+                console.error("Errore Generazione:", error);
+                showToast("Errore API: Controlla la tua Key.");
             } finally {
                 aiBtn.disabled = false;
                 panel.classList.remove('ai-loading');
@@ -214,10 +214,11 @@
         }
 
         async function callGemini(query, systemInstruction) {
-            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+            // Usiamo gemini-1.5-flash per massima compatibilità con API pubbliche
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
             
             let retries = 0;
-            const maxRetries = 5;
+            const maxRetries = 3;
             
             while (retries < maxRetries) {
                 try {
@@ -225,19 +226,25 @@
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
-                            contents: [{ parts: [{ text: query }] }],
-                            systemInstruction: { parts: [{ text: systemInstruction }] }
+                            contents: [{ 
+                                role: "user",
+                                parts: [{ text: `${systemInstruction}\n\nRichiesta: ${query}` }] 
+                            }]
                         })
                     });
                     
-                    if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
+                    if (!response.ok) {
+                        const errData = await response.json();
+                        console.error("Dettaglio Errore Google:", errData);
+                        throw new Error(`HTTP Error: ${response.status}`);
+                    }
                     
                     const result = await response.json();
                     return result.candidates?.[0]?.content?.parts?.[0]?.text || "";
                 } catch (e) {
                     retries++;
                     if (retries === maxRetries) throw e;
-                    await new Promise(res => setTimeout(res, Math.pow(2, retries) * 1000));
+                    await new Promise(res => setTimeout(res, 1000));
                 }
             }
         }
