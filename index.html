@@ -47,11 +47,22 @@
 
     <div class="max-w-6xl mx-auto">
         <!-- Header -->
-        <header class="mb-12 text-center">
-            <h1 class="text-4xl font-bold bg-gradient-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent mb-2">
-                AutoCLI Tool <span class="text-sm font-light italic opacity-70">Pro Edition</span>
-            </h1>
-            <p class="text-slate-400 uppercase tracking-tighter text-sm font-semibold">Automazione Intelligente per Network Admin & DevOps</p>
+        <header class="mb-12 text-center flex flex-col md:flex-row justify-between items-center">
+            <div class="text-left">
+                <h1 class="text-4xl font-bold bg-gradient-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent mb-2">
+                    AutoCLI Tool <span class="text-sm font-light italic opacity-70">Pro Edition</span>
+                </h1>
+                <p class="text-slate-400 uppercase tracking-tighter text-sm font-semibold">Automazione Intelligente per Network Admin & DevOps</p>
+            </div>
+            
+            <!-- API Key Setup (Necessario per GitHub) -->
+            <div class="mt-4 md:mt-0 flex items-center bg-slate-800/50 p-2 rounded-xl border border-slate-700">
+                <input id="userApiKey" type="password" placeholder="Inserisci Gemini API Key" 
+                    class="bg-transparent border-none text-xs px-3 py-1 outline-none w-48 text-blue-300">
+                <button onclick="saveApiKey()" class="bg-blue-600 hover:bg-blue-500 px-3 py-1 rounded-lg text-[10px] font-bold uppercase transition-all">
+                    Set Key
+                </button>
+            </div>
         </header>
 
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -126,7 +137,19 @@
     </div>
 
     <script>
-        const apiKey = ""; 
+        // Gestione API Key per GitHub / Esterno
+        let apiKey = localStorage.getItem('autocli_api_key') || "";
+        if (apiKey) document.getElementById('userApiKey').value = apiKey;
+
+        function saveApiKey() {
+            const key = document.getElementById('userApiKey').value.trim();
+            if (key) {
+                apiKey = key;
+                localStorage.setItem('autocli_api_key', key);
+                showToast("API Key salvata localmente!");
+            }
+        }
+
         let tasks = JSON.parse(localStorage.getItem('autocli_tasks_v4')) || [];
         let currentMode = 'standard';
 
@@ -140,6 +163,11 @@
         }
 
         async function generateWithAI() {
+            if (!apiKey) {
+                showToast("Inserisci prima l'API Key in alto!");
+                return;
+            }
+
             const promptInput = document.getElementById('taskName');
             const cmdOutput = document.getElementById('taskCmds');
             const aiBtn = document.getElementById('aiBtn');
@@ -154,7 +182,6 @@
             panel.classList.add('ai-loading');
             cmdOutput.placeholder = "Generazione in corso...";
             
-            // System Prompt specializzato per gerarchia Cisco
             const systemPrompt = `Sei un Senior Network Engineer. 
             Se la modalità è 'cisco', genera comandi Cisco IOS. 
             IMPORTANTE: Inizia SEMPRE con 'enable' e 'configure terminal'. 
@@ -173,7 +200,7 @@
                 cmdOutput.value = responseText.replace(/```/g, '').trim();
                 showToast("Script generato!");
             } catch (error) {
-                showToast("Errore di connessione API.");
+                showToast("Errore API: Controlla la tua Key.");
             } finally {
                 aiBtn.disabled = false;
                 panel.classList.remove('ai-loading');
@@ -241,7 +268,6 @@
             let finalOutput = "";
 
             if (task.mode === 'cisco') {
-                // Per Cisco assicuriamo un formato multiriga pulito
                 finalOutput = task.commands.join('\n');
             } else {
                 finalOutput = task.commands.join(' && ');
