@@ -175,7 +175,7 @@
 
             aiBtn.disabled = true;
             panel.classList.add('ai-loading');
-            cmdOutput.placeholder = "Tentativo di connessione con l'AI...";
+            cmdOutput.placeholder = "Verifica connettività AI...";
             
             const systemPrompt = `Sei un Senior Network Engineer specializzato in automazione. 
             Genera una lista di comandi CLI per la seguente richiesta.
@@ -187,23 +187,22 @@
             - Rispondi SOLO con il codice dei comandi, un comando per riga.
             - NON usare markdown (\`\`\`), NON aggiungere commenti o spiegazioni.`;
 
-            // Strategia multi-modello per risolvere il 404
-            const endpoints = [
-                "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent",
-                "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent",
-                "https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent",
-                "https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent"
+            // Strategia di rotazione basata su versioni diverse
+            const configs = [
+                { url: "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent", label: "v1beta Flash" },
+                { url: "https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent", label: "v1 Stable Flash" },
+                { url: "https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent", label: "v1beta Pro" }
             ];
 
             let success = false;
-            let lastErrorMsg = "";
+            let debugLog = [];
 
-            for (const url of endpoints) {
+            for (const config of configs) {
                 if (success) break;
                 
                 try {
-                    console.log(`Provando endpoint: ${url}`);
-                    const response = await fetch(`${url}?key=${apiKey}`, {
+                    console.log(`Tentativo con ${config.label}...`);
+                    const response = await fetch(`${config.url}?key=${apiKey}`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
@@ -219,25 +218,21 @@
                         if (result.candidates && result.candidates[0].content) {
                             const text = result.candidates[0].content.parts[0].text;
                             cmdOutput.value = text.replace(/```[a-z]*\n?/gi, '').replace(/```/g, '').trim();
-                            showToast("Generato!");
+                            showToast("IA Risponde!");
                             success = true;
                         }
                     } else {
-                        lastErrorMsg = result.error?.message || response.statusText;
-                        console.warn(`Fallito ${url}: ${lastErrorMsg}`);
-                        
-                        // Se l'errore è relativo alla quota o alla key, inutile provare altri modelli
-                        if (response.status === 401 || response.status === 429) break;
+                        const msg = result.error?.message || response.statusText;
+                        debugLog.push(`${config.label}: ${response.status} (${msg})`);
                     }
                 } catch (e) {
-                    console.warn(`Errore di rete su ${url}:`, e);
+                    debugLog.push(`${config.label}: Network Error`);
                 }
             }
 
             if (!success) {
-                cmdOutput.value = "";
-                cmdOutput.placeholder = "Errore API: " + (lastErrorMsg || "Modello non trovato.");
-                showToast("Errore durante la generazione. Controlla la Key.");
+                cmdOutput.value = "LOG ERRORI:\n" + debugLog.join('\n');
+                showToast("Errore di connessione AI.");
             }
 
             aiBtn.disabled = false;
