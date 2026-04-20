@@ -91,7 +91,7 @@
                                     class="w-full bg-slate-900 border border-slate-700 rounded-lg pl-4 pr-12 py-3 focus:ring-2 focus:ring-blue-500 outline-none transition-all">
                                 <button onclick="generateWithAI()" id="aiBtn" class="absolute right-2 top-1.5 p-1.5 bg-blue-600 hover:bg-blue-500 rounded-md transition-colors" title="Genera con IA">
                                     <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                                        <path fill-rule="evenodd" d="M11.3 1.047a.75.75 0 01.974.134l3.5 4.5a.75.75 0 01-.112 1.056l-5 4.5a.75.75 0 11-1.012-1.123l4.24-3.816-2.951-3.793a.75.75 0 01.361-1.158zM4.7 18.953a.75.75 0 01-.974-.134l-3.5-4.5a.75.75 0 01.112-1.056l5-4.5a.75.75 0 111.012 1.123l-4.24 3.816 2.951 3.793a.75.75 0 01-.361 1.158z" clip-rule="evenodd" />
+                                        <path fill-rule="evenodd" d="M11.3 1.047a.75.75 0 01.974.134l3.5 4.5a.75.75 0 01-.112 1.056l-5 4.5a.75.75 0 11-1.012-1.123l4.24-3.816-2.951-3.793a.75.75 0 01.361-1.158zM4.7 18.953a.75.75 0 01-.974-.134l-3.5-4.5a.75.75 0 01.112-1.056l5-4.5a.75.75 0 111.012 1.123l-4.24 3.816 2.951-3.793a.75.75 0 01-.361 1.158z" clip-rule="evenodd" />
                                         <path fill-rule="evenodd" d="M12.3 18.953a.75.75 0 00.974-.134l3.5-4.5a.75.75 0 00-.112-1.056l-5-4.5a.75.75 0 10-1.012 1.123l4.24 3.816-2.951-3.793a.75.75 0 00.361 1.158zM7.7 1.047a.75.75 0 00-.974.134l-3.5 4.5a.75.75 0 00.112 1.056l5-4.5a.75.75 0 101.012-1.123L5.138 5.25l2.951-3.793a.75.75 0 00-.361-1.158z" clip-rule="evenodd" />
                                     </svg>
                                 </button>
@@ -175,7 +175,7 @@
 
             aiBtn.disabled = true;
             panel.classList.add('ai-loading');
-            cmdOutput.placeholder = "Richiesta AI in corso...";
+            cmdOutput.placeholder = "Tentativo di connessione ai modelli specifici...";
             
             const systemPrompt = `Sei un Senior Network Engineer specializzato in automazione. 
             Genera una lista di comandi CLI per la seguente richiesta.
@@ -187,11 +187,12 @@
             - Rispondi SOLO con il codice dei comandi, un comando per riga.
             - NON usare markdown (\`\`\`), NON aggiungere commenti o spiegazioni.`;
 
-            // Aggiornato con i nomi modelli più recenti e compatibili basandoci sul log 404
+            // Utilizziamo nomi di modelli espliciti e versioni stabili v1 per massima compatibilità
             const configs = [
-                { url: "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent", label: "Gemini 2.0 Flash" },
-                { url: "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent", label: "Gemini 1.5 Latest" },
-                { url: "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro-latest:generateContent", label: "Gemini 1.5 Pro" }
+                { url: "https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash-002:generateContent", label: "v1 Flash 002" },
+                { url: "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-002:generateContent", label: "v1beta Flash 002" },
+                { url: "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent", label: "Gemini 2.0 Exp" },
+                { url: "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent", label: "v1beta Flash Standard" }
             ];
 
             let success = false;
@@ -217,7 +218,7 @@
                         if (result.candidates && result.candidates[0].content) {
                             const text = result.candidates[0].content.parts[0].text;
                             cmdOutput.value = text.replace(/```[a-z]*\n?/gi, '').replace(/```/g, '').trim();
-                            showToast(`Successo con ${config.label}`);
+                            showToast(`Connesso via ${config.label}`);
                             success = true;
                         }
                     } else {
@@ -225,13 +226,13 @@
                         debugLog.push(`${config.label}: ${response.status} - ${msg}`);
                     }
                 } catch (e) {
-                    debugLog.push(`${config.label}: Errore di connessione`);
+                    debugLog.push(`${config.label}: Errore di rete`);
                 }
             }
 
             if (!success) {
-                cmdOutput.value = "ERRORE CRITICO:\nL'API Google non riconosce i modelli standard con la tua chiave.\n\n" + debugLog.join('\n') + "\n\nSuggerimento: Verifica in Google AI Studio se il modello 'Gemini 1.5 Flash' è attivo nel tuo piano.";
-                showToast("Errore di configurazione API.");
+                cmdOutput.value = "ERRORE DI CONFIGURAZIONE:\n" + debugLog.join('\n') + "\n\nPossibili cause:\n1. API Key non valida.\n2. Il tuo account richiede l'abilitazione di 'Google Cloud Project' in AI Studio.\n3. Restrizioni geografiche sull'endpoint.";
+                showToast("Nessun modello trovato.");
             }
 
             aiBtn.disabled = false;
